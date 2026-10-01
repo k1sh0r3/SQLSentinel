@@ -29,8 +29,8 @@
 
   <h3>The two tabs</h3>
   <ul>
-    <li><strong>Generate</strong> — ask in English. An LLM (your free Gemini key,
-      paste-once, stored only in this browser) writes the SQL for your dialect.
+    <li><strong>Generate</strong> — ask in English. An LLM (your free key — Google Gemini
+      or Groq, paste-once, stored only in this browser) writes the SQL for your dialect.
       Then the validator checks it: if there are errors, the error messages plus
       the schema go back to the model for a fix — up to 3 rounds. You watch the
       loop happen.</li>
@@ -72,14 +72,13 @@
   <h3>Privacy</h3>
   <p>100% client-side. Your schema and SQL never leave this browser. The only
      network call in the entire app is the one <em>you</em> trigger on the Generate
-     tab, to Google's API, with <em>your</em> key. The Verify tab works fully offline.</p>
+     tab, to your chosen provider's API, with <em>your</em> key. The Verify tab works fully offline.</p>
 
-  <h3>Roadmap</h3>
-  <p>Phase 2: <strong>SQL Sentinel as a GitHub Action</strong> — the code reviewer
-     for AI-written SQL. It will validate SQL in pull requests (dbt models,
-     migrations), explain the diff in plain English, and flag dangerous changes
-     before they merge. The validator in <code>assets/validator.js</code> is
-     already structured as a reusable, dependency-free module for exactly that.</p>
+  <h3>Phase 2 — done</h3>
+  <p><strong>SQL Sentinel as a GitHub Action</strong> — the code reviewer
+     for AI-written SQL. It validates SQL in pull requests (dbt models,
+     migrations), explains the diff in plain English, and flags dangerous changes
+     before merge. <a href="https://github.com/k1sh0r3/sql-sentinel-action">k1sh0r3/sql-sentinel-action</a></p>
 </main>
 
 <footer class="site-footer">

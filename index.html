@@ -50,9 +50,15 @@
           </select>
         </label>
         <h3>AI key <span class="muted-sm">paste once, stays in this browser</span></h3>
+        <label class="muted" for="apiProvider">Provider
+          <select id="apiProvider">
+            <option value="gemini" selected>Google Gemini (free)</option>
+            <option value="groq">Groq (free, fast)</option>
+          </select>
+        </label>
         <input type="password" id="apiKey" placeholder="Gemini API key" autocomplete="off">
         <input type="text" id="apiModel" value="gemini-3.8-flash" title="Model name" autocomplete="off" spellcheck="false">
-        <p class="muted-sm">Free key from Google AI Studio. Stored in localStorage only — never sent anywhere except Google's API.</p>
+        <p class="muted-sm" id="apiKeyHint">Free key from Google AI Studio. Stored in localStorage only — never sent anywhere except Google's API.</p>
       </aside>
 
       <div class="gen-main">
@@ -124,7 +130,7 @@
 <footer class="site-footer">
   <div class="wrap">
     <p><strong>SQL Sentinel</strong> — verified text-to-SQL with a validation loop.</p>
-    <p>🔒 100% client-side. Your schema and SQL never leave this browser — the only network call is the one <em>you</em> trigger to Google's API with <em>your</em> key on the Generate tab. The Verify tab makes zero network calls.</p>
+    <p>🔒 100% client-side. Your schema and SQL never leave this browser — the only network call is the one <em>you</em> trigger to your chosen provider's API with <em>your</em> key on the Generate tab. The Verify tab makes zero network calls.</p>
   </div>
 </footer>
 
