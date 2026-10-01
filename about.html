@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How it works — SQL Sentinel</title>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230b1026'/><text x='50' y='70' font-size='52' text-anchor='middle' fill='%2338e1c6' font-family='monospace' font-weight='bold'>S</text></svg>">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">
+      <span class="logo">S</span>
+      <div>
+        <h1>SQL Sentinel</h1>
+        <p class="tagline">Trust, but verify — for AI-written SQL.</p>
+      </div>
+    </div>
+    <nav><a href="index.html">App</a></nav>
+  </div>
+</header>
+
+<main class="wrap article">
+  <h2>How it works</h2>
+  <p>Every text-to-SQL demo generates a query and prays. SQL Sentinel is the
+     verification layer those demos skip: <strong>generate, then prove the SQL is
+     safe and correct</strong> — against your real schema, before anything runs.</p>
+
+  <h3>The two tabs</h3>
+  <ul>
+    <li><strong>Generate</strong> — ask in English. An LLM (your free Gemini key,
+      paste-once, stored only in this browser) writes the SQL for your dialect.
+      Then the validator checks it: if there are errors, the error messages plus
+      the schema go back to the model for a fix — up to 3 rounds. You watch the
+      loop happen.</li>
+    <li><strong>Verify</strong> — paste any SQL (yours, a colleague's, an AI's)
+      plus your schema. Instant validation report, plain-English explanation,
+      and a guardrail verdict. No key, no account, zero network calls.</li>
+  </ul>
+
+  <h3>The checks</h3>
+  <table>
+    <tr><th>Check</th><th>Severity</th><th>What it does</th></tr>
+    <tr><td><code>UNKNOWN_TABLE</code> / <code>UNKNOWN_COLUMN</code></td><td>error</td><td>Every table and column must exist in your schema. Misspellings get a did-you-mean suggestion (Levenshtein).</td></tr>
+    <tr><td><code>DESTRUCTIVE_NO_WHERE</code></td><td>error</td><td><code>DELETE</code>/<code>UPDATE</code> without <code>WHERE</code> is blocked. <code>DROP</code>/<code>TRUNCATE</code> are always blocked.</td></tr>
+    <tr><td><code>DESTRUCTIVE_WHERE</code></td><td>warning</td><td><code>DELETE</code>/<code>UPDATE</code> with <code>WHERE</code> passes with a warning — preview with <code>SELECT</code> first.</td></tr>
+    <tr><td><code>CROSS_JOIN</code> / <code>IMPLICIT_CROSS_JOIN</code></td><td>warning</td><td>Joins with no <code>ON</code> condition pair every row with every row.</td></tr>
+    <tr><td><code>TYPE_MISMATCH</code></td><td>warning</td><td>Comparing a number column to a string literal, etc. (Date literals vs datetime columns are allowed — that's idiomatic.)</td></tr>
+    <tr><td><code>AMBIGUOUS_COLUMN</code></td><td>warning</td><td>A column name exists in two joined tables — qualify it.</td></tr>
+    <tr><td><code>PII_ACCESS</code></td><td>warning</td><td>Flags likely-PII columns (email, phone, SSN, …) by name heuristic.</td></tr>
+    <tr><td><code>MISSING_LIMIT</code></td><td>warning</td><td>No <code>LIMIT</code> on a non-aggregated query — could return the whole table.</td></tr>
+    <tr><td><code>SELECT_STAR</code></td><td>info</td><td><code>SELECT *</code> returns everything, including future schema surprises.</td></tr>
+  </table>
+
+  <h3>The verdict</h3>
+  <ul>
+    <li><strong style="color:#38e1c6">✓ SAFE</strong> — no issues found.</li>
+    <li><strong style="color:#ffb84d">⚠ NEEDS REVIEW</strong> — warnings only. Read them, then decide.</li>
+    <li><strong style="color:#ff6b6b">✕ BLOCKED</strong> — errors found. Fix before running.</li>
+  </ul>
+
+  <h3>Honest limits</h3>
+  <ul>
+    <li><strong>It never executes anything.</strong> "Safe" means "passes static checks", not "returns correct business answers". A query can be valid SQL against a real schema and still answer the wrong question.</li>
+    <li><strong>Ambiguous language stays ambiguous.</strong> If "active customer" isn't defined in your schema, the tool surfaces its assumptions in the plain-English explanation instead of guessing silently — but a human still has to confirm the business logic.</li>
+    <li><strong>PII detection is name-based.</strong> A column called <code>notes</code> full of phone numbers won't be flagged. It's a tripwire, not a guarantee.</li>
+    <li><strong>Parsing is best-effort.</strong> Exotic dialect syntax may fail to parse; failures are reported as unknown, never silently passed.</li>
+    <li><strong>The Generate tab is only as good as the model.</strong> The validator catches mechanical errors (wrong names, types, dangerous ops) — it cannot catch a plausible-but-wrong interpretation of your question.</li>
+  </ul>
+
+  <h3>Privacy</h3>
+  <p>100% client-side. Your schema and SQL never leave this browser. The only
+     network call in the entire app is the one <em>you</em> trigger on the Generate
+     tab, to Google's API, with <em>your</em> key. The Verify tab works fully offline.</p>
+
+  <h3>Roadmap</h3>
+  <p>Phase 2: <strong>SQL Sentinel as a GitHub Action</strong> — the code reviewer
+     for AI-written SQL. It will validate SQL in pull requests (dbt models,
+     migrations), explain the diff in plain English, and flag dangerous changes
+     before they merge. The validator in <code>assets/validator.js</code> is
+     already structured as a reusable, dependency-free module for exactly that.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p><strong>SQL Sentinel</strong> — verified text-to-SQL with a validation loop.</p>
+  </div>
+</footer>
+</body>
+</html>

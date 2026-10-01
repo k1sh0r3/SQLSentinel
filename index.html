@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Sentinel — Trust, but verify, for AI-written SQL.</title>
+<meta name="description" content="SQL Sentinel: verified text-to-SQL with a validation loop. Generate SQL from English, then prove it safe against your schema — 100% in the browser.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230b1026'/><text x='50' y='70' font-size='52' text-anchor='middle' fill='%2338e1c6' font-family='monospace' font-weight='bold'>S</text></svg>">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">
+      <span class="logo">S</span>
+      <div>
+        <h1>SQL Sentinel</h1>
+        <p class="tagline">Trust, but verify — for AI-written SQL.</p>
+      </div>
+    </div>
+    <nav><a href="about.html">How it works</a></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="tabs" role="tablist">
+    <button class="tab active" id="tabBtnGenerate" role="tab" aria-selected="true">Generate</button>
+    <button class="tab" id="tabBtnVerify" role="tab" aria-selected="false">Verify <span class="keyless">no key needed</span></button>
+  </div>
+
+  <!-- ============ GENERATE TAB ============ -->
+  <section id="tab-generate" role="tabpanel">
+    <div class="gen-grid">
+      <aside class="schema-panel">
+        <h3>Schema</h3>
+        <textarea id="genDdl" rows="12" spellcheck="false" placeholder="Paste CREATE TABLE statements here…"></textarea>
+        <div class="btnrow">
+          <button class="btn" id="genDemoSchema">Load demo schema</button>
+          <button class="btn" id="genUploadSchema">Upload .sql</button>
+          <input type="file" id="genSchemaFile" accept=".sql,.txt" hidden>
+        </div>
+        <label class="muted" for="genDialect">Dialect
+          <select id="genDialect">
+            <option value="postgresql" selected>PostgreSQL</option>
+            <option value="mysql">MySQL</option>
+            <option value="bigquery">BigQuery</option>
+            <option value="snowflake">Snowflake</option>
+            <option value="sqlite">SQLite</option>
+            <option value="trino">Trino</option>
+          </select>
+        </label>
+        <h3>AI key <span class="muted-sm">paste once, stays in this browser</span></h3>
+        <input type="password" id="apiKey" placeholder="Gemini API key" autocomplete="off">
+        <input type="text" id="apiModel" value="gemini-3.8-flash" title="Model name" autocomplete="off" spellcheck="false">
+        <p class="muted-sm">Free key from Google AI Studio. Stored in localStorage only — never sent anywhere except Google's API.</p>
+      </aside>
+
+      <div class="gen-main">
+        <h3>Ask in English</h3>
+        <div class="chips" id="exampleChips"></div>
+        <textarea id="question" rows="3" placeholder="e.g. Top 10 customers by revenue last quarter, excluding refunded orders"></textarea>
+        <div class="btnrow">
+          <button class="btn primary" id="generateBtn">Generate &amp; verify</button>
+          <span class="muted-sm" id="genStatus"></span>
+        </div>
+        <div id="loopLog" class="loop-log" hidden></div>
+        <div id="genResult" hidden>
+          <div class="verdict" id="genVerdict"></div>
+          <h3>SQL</h3>
+          <pre class="sqlout"><code id="genSql"></code></pre>
+          <h3>Validation report</h3>
+          <div id="genIssues" class="issues"></div>
+          <h3>In plain English</h3>
+          <p id="genExplain" class="explain"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VERIFY TAB ============ -->
+  <section id="tab-verify" role="tabpanel" hidden>
+    <p class="lede">Paste any SQL — yours, a colleague's, an AI's — and get an instant validation report.
+       No key, no account, no network calls. Everything runs locally.</p>
+    <div class="verify-grid">
+      <div>
+        <h3>SQL to check</h3>
+        <textarea id="verSql" rows="10" spellcheck="false" placeholder="Paste SQL here…"></textarea>
+        <div class="btnrow">
+          <button class="btn" id="verDemoSql">Load demo SQL</button>
+          <button class="btn" id="verRiskySql">Load risky SQL</button>
+        </div>
+      </div>
+      <div>
+        <h3>Schema <span class="muted-sm">optional but recommended</span></h3>
+        <textarea id="verDdl" rows="10" spellcheck="false" placeholder="Paste CREATE TABLE statements here…"></textarea>
+        <div class="btnrow">
+          <button class="btn" id="verDemoSchema">Load demo schema</button>
+          <label class="muted" for="verDialect">Dialect
+            <select id="verDialect">
+              <option value="postgresql" selected>PostgreSQL</option>
+              <option value="mysql">MySQL</option>
+              <option value="bigquery">BigQuery</option>
+              <option value="snowflake">Snowflake</option>
+              <option value="sqlite">SQLite</option>
+              <option value="trino">Trino</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button class="btn primary" id="validateBtn">Validate</button>
+    </div>
+    <div id="verResult" hidden>
+      <div class="verdict" id="verVerdict"></div>
+      <h3>Validation report</h3>
+      <div id="verIssues" class="issues"></div>
+      <h3>In plain English</h3>
+      <p id="verExplain" class="explain"></p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <p><strong>SQL Sentinel</strong> — verified text-to-SQL with a validation loop.</p>
+    <p>🔒 100% client-side. Your schema and SQL never leave this browser — the only network call is the one <em>you</em> trigger to Google's API with <em>your</em> key on the Generate tab. The Verify tab makes zero network calls.</p>
+  </div>
+</footer>
+
+<script src="assets/vendor/node-sql-parser.umd.js"></script>
+<script src="assets/validator.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
