@@ -3,8 +3,34 @@
   'use strict';
 
   var V = SqlSentinel.createValidator(Parser);
-  var LS_KEY = 'sqlsentinel-gemini-key';
-  var LS_MODEL = 'sqlsentinel-gemini-model';
+
+  /* ---------------- LLM providers (BYOK, free tiers) ---------------- */
+  var PROVIDERS = {
+    gemini: {
+      label: 'Google Gemini',
+      keyLs: 'sqlsentinel-gemini-key',
+      modelLs: 'sqlsentinel-gemini-model',
+      defaultModel: 'gemini-3.8-flash',
+      keyUrl: 'https://aistudio.google.com/apikey',
+      keyName: 'Google AI Studio',
+      placeholder: 'Gemini API key'
+    },
+    groq: {
+      label: 'Groq',
+      keyLs: 'sqlsentinel-groq-key',
+      modelLs: 'sqlsentinel-groq-model',
+      defaultModel: 'openai/gpt-oss-120b',
+      keyUrl: 'https://console.groq.com/keys',
+      keyName: 'Groq Console',
+      placeholder: 'Groq API key (gsk_…)'
+    }
+  };
+  var LS_PROVIDER = 'sqlsentinel-provider';
+  function currentProvider() {
+    var p = 'gemini';
+    try { p = localStorage.getItem(LS_PROVIDER) || 'gemini'; } catch (e) {}
+    return PROVIDERS[p] ? p : 'gemini';
+  }
 
   /* ---------------- demo data ---------------- */
   var DEMO_DDL = [
@@ -119,38 +145,60 @@
   /* ---------------- Gemini (BYOK) ---------------- */
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-  async function geminiCall(prompt, key, model, statusCb) {
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-      encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key);
-    var body = JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
-    });
+  async function llmCall(prompt, provider, key, model, statusCb) {
+    var cfg = PROVIDERS[provider] || PROVIDERS.gemini;
+    var url, body, headers;
+    if (provider === 'groq') {
+      // Groq is OpenAI-compatible
+      url = 'https://api.groq.com/openai/v1/chat/completions';
+      headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key };
+      body = JSON.stringify({
+        model: model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2,
+        max_tokens: 2048
+      });
+    } else {
+      url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+        encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key);
+      headers = { 'Content-Type': 'application/json' };
+      body = JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
+      });
+    }
+    function extractText(data) {
+      if (provider === 'groq') {
+        return data && data.choices && data.choices[0] && data.choices[0].message &&
+          data.choices[0].message.content;
+      }
+      return data && data.candidates && data.candidates[0] &&
+        data.candidates[0].content && data.candidates[0].content.parts &&
+        data.candidates[0].content.parts.map(function (p) { return p.text || ''; }).join('');
+    }
     var waits = [4000, 8000];
     for (var attempt = 0; attempt <= 3; attempt++) {
       let res;
       try {
-        res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body });
+        res = await fetch(url, { method: 'POST', headers: headers, body: body });
       } catch (e) {
-        throw new Error('Network error calling the API: ' + e.message);
+        throw new Error('Network error calling ' + cfg.label + ': ' + e.message);
       }
       if (res.ok) {
         var data = await res.json();
-        var text = data && data.candidates && data.candidates[0] &&
-          data.candidates[0].content && data.candidates[0].content.parts &&
-          data.candidates[0].content.parts.map(function (p) { return p.text || ''; }).join('');
-        if (!text) throw new Error('The API returned an empty response.');
-        return text;
+        var text = extractText(data);
+        if (!text || !String(text).trim()) throw new Error(cfg.label + ' returned an empty response.');
+        return String(text);
       }
       if ((res.status === 429 || res.status === 503) && attempt < 3) {
-        if (statusCb) statusCb('Model is busy, retrying…');
+        if (statusCb) statusCb(cfg.label + ' is busy, retrying…');
         await sleep(waits[Math.min(attempt, waits.length - 1)]);
         continue;
       }
       var errText = await res.text().catch(function () { return ''; });
-      throw new Error('API error ' + res.status + ': ' + errText.slice(0, 200));
+      throw new Error(cfg.label + ' API error ' + res.status + ': ' + errText.slice(0, 200));
     }
-    throw new Error('The model is overloaded right now — try again in a minute.');
+    throw new Error(cfg.label + ' is overloaded right now — try again in a minute, or switch provider above.');
   }
 
   function extractSql(text) {
@@ -160,18 +208,33 @@
   }
 
   /* ---------------- Generate tab ---------------- */
-  // restore key + model
-  try {
-    var savedKey = localStorage.getItem(LS_KEY);
-    if (savedKey) $('apiKey').value = savedKey;
-    var savedModel = localStorage.getItem(LS_MODEL);
-    if (savedModel) $('apiModel').value = savedModel;
-  } catch (e) { /* storage unavailable — key must be pasted each visit */ }
+  // provider + key + model (per-provider localStorage)
+  function applyProvider(p, skipSave) {
+    var cfg = PROVIDERS[p] || PROVIDERS.gemini;
+    $('apiKey').placeholder = cfg.placeholder;
+    var key = '', model = cfg.defaultModel;
+    try {
+      key = localStorage.getItem(cfg.keyLs) || '';
+      model = localStorage.getItem(cfg.modelLs) || cfg.defaultModel;
+      if (!skipSave) localStorage.setItem(LS_PROVIDER, p);
+    } catch (e) { /* storage unavailable — key must be pasted each visit */ }
+    $('apiKey').value = key;
+    $('apiModel').value = model;
+    $('apiKeyHint').innerHTML = 'Free key from <a href="' + cfg.keyUrl +
+      '" target="_blank" rel="noopener">' + cfg.keyName +
+      '</a>. Stored in localStorage only — never sent anywhere except ' + cfg.label + '\'s API.';
+  }
+  var provSel = $('apiProvider');
+  provSel.value = currentProvider();
+  applyProvider(provSel.value, true);
+  provSel.addEventListener('change', function () { applyProvider(provSel.value, false); });
   $('apiKey').addEventListener('change', function () {
-    try { localStorage.setItem(LS_KEY, $('apiKey').value.trim()); } catch (e) {}
+    var cfg = PROVIDERS[provSel.value] || PROVIDERS.gemini;
+    try { localStorage.setItem(cfg.keyLs, $('apiKey').value.trim()); } catch (e) {}
   });
   $('apiModel').addEventListener('change', function () {
-    try { localStorage.setItem(LS_MODEL, $('apiModel').value.trim()); } catch (e) {}
+    var cfg = PROVIDERS[provSel.value] || PROVIDERS.gemini;
+    try { localStorage.setItem(cfg.modelLs, $('apiModel').value.trim()); } catch (e) {}
   });
 
   $('genDdl').value = DEMO_DDL;
@@ -196,15 +259,17 @@
   });
 
   $('generateBtn').addEventListener('click', async function () {
+    var provider = $('apiProvider').value;
+    var cfg = PROVIDERS[provider] || PROVIDERS.gemini;
     var key = $('apiKey').value.trim();
-    var model = $('apiModel').value.trim() || 'gemini-3.8-flash';
+    var model = $('apiModel').value.trim() || cfg.defaultModel;
     var question = $('question').value.trim();
     var dialect = $('genDialect').value;
     var status = $('genStatus');
     if (!question) { status.textContent = 'Type a question first.'; return; }
     if (!key) {
-      status.innerHTML = 'Paste your free Gemini API key in the left panel first ' +
-        '(<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>).';
+      status.innerHTML = 'Paste your free ' + cfg.label + ' API key in the left panel first ' +
+        '(<a href="' + cfg.keyUrl + '" target="_blank" rel="noopener">' + cfg.keyName + '</a>).';
       return;
     }
     var schema = getSchema($('genDdl').value, dialect);
@@ -244,7 +309,7 @@
             'Previous SQL:\n' + sql + '\n' +
             'Return ONLY the corrected SQL in a ```sql code block. No explanation.';
         }
-        var raw = await geminiCall(prompt, key, model, function (m) { status.textContent = m; });
+        var raw = await llmCall(prompt, provider, key, model, function (m) { status.textContent = m; });
         sql = extractSql(raw);
         report = V.validate(sql, schema, dialect);
         var nErr = report.issues.filter(function (i) { return i.severity === 'error'; }).length;
