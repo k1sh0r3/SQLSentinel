@@ -12,7 +12,7 @@ connection, no uploads — your schema never leaves your machine.
 
 ## The two tabs
 
-- **Generate** (needs a free Gemini API key, paste-once → localStorage): English
+- **Generate** (needs a free API key — Google Gemini or Groq, paste-once → localStorage): English
   question + your DDL + dialect → SQL, then the **verification loop**: validate →
   feed errors + schema excerpt back to the model for a fix (max 3 rounds) →
   final SQL + report + explanation + verdict. You watch the loop happen, e.g.
@@ -59,7 +59,7 @@ index.html                     Generate + Verify tabs
 about.html                     how-it-works, checks, honest limits
 assets/
   style.css                    dark theme (#0b0e17 / #38e1c6)
-  app.js                       UI: tabs, demo data, Gemini BYOK, verification loop
+  app.js                       UI: tabs, demo data, multi-provider BYOK (Gemini/Groq), verification loop
   validator.js                 the engine — UMD, dependency-free (parser injected),
                                works in node and browser; reusable for the Phase-2
                                GitHub Action PR reviewer
@@ -71,12 +71,12 @@ tests/
                                ops, joins, types, PII, explanation
 ```
 
-## Roadmap
+## Phase 2 — done ✅
 
-**Phase 2: SQL Sentinel as a GitHub Action** — the code reviewer for AI-written
-SQL. It will validate SQL in pull requests (dbt models, migrations), explain
-the diff in plain English, and flag dangerous changes before they merge.
-`assets/validator.js` is already structured as the reusable core for it.
+**SQL Sentinel as a GitHub Action** — the code reviewer for AI-written SQL:
+[SQLSentinel](https://k1sh0r3.github.io/SQLSentinel/) validates SQL in pull requests
+(dbt models, migrations), explains the diff in plain English, and flags dangerous
+changes before they merge. → [k1sh0r3/sql-sentinel-action](https://github.com/k1sh0r3/sql-sentinel-action)
 
 ## License
 
